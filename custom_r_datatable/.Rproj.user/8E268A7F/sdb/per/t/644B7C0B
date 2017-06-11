@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "#\n# liam-2 results\n#\n\nint_yll <- 39822\nint_cost <- 201756\nbase_yll <- 57702\nbase_cost <- 0\n\nint_yll - base_yll\n\n(int_cost - base_cost) / (int_yll - base_yll)\n",
+    "created" : 1497049640749.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2965808286",
+    "id" : "644B7C0B",
+    "lastKnownWriteTime" : 1497149784,
+    "last_content_update" : 1497149784602,
+    "path" : "~/prog/projects/hello_world_paper/microsim_datatable_reed/liam2_results.R",
+    "project_path" : "liam2_results.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

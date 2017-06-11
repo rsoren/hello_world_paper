@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "#\n\n#\n# msm_v2.R\n#\n# Reed Sorensen\n# April 2016\n#\n\nlibrary(msm)\nlibrary(dplyr)\nlibrary(data.table)\n\n\n# model parameters\nstart_year <- 1990\nend_year <- 2010\nstates <- c(\"well\", \"sick\", \"dead\")\npop_size <- 10000\n\n\n# some prep code\n# jpath <- ifelse(Sys.info()[\"sysname\"] == \"Windows\", \"J:/\", \"/home/j/\")\n# project_folder <- paste0(jpath, \"Project/Cost_Effectiveness/dev/\")\ntimes <- 0:(end_year-start_year)\n\n\n# create data frame with transition rates by age and year\nmort_infile <- read.csv(\n  file = paste0(project_folder, \"data_processed/Kenya_mortality_rates_1990_2013.csv\")\n)\n\nrates <- mort_infile %>% select(year = year_id, age, mortality_rate) %>%\n  rename(well_dead = mortality_rate) %>%\n  mutate(\n    well_sick = 0.3, # some incidence data\n    sick_well = 0.2, # some remission data\n    sick_dead = well_dead # cause-specific mortality rate\n  )\n\n\n# function for getting qmatrix, given age and year\nget_qmatrix <- function(agevar, yearvar) {\n\n  mat <- diag(1, nrow = length(states), ncol = length(states))\n  colnames(mat) <- rownames(mat) <- states\n  dat <- subset(rates, age == agevar & year == yearvar)\n  nms <- names(dat)[!names(dat) %in% c(\"age\", \"year\")]\n\n  for (nm in nms) {\n    nm2 <- strsplit(nm, split = \"_\")[[1]]\n    mat[nm2[1], nm2[2]] <- dat[1, nm]\n  }\n\n  return(mat)\n\n}\n\n\n# create initial population\nsource(\"create_baseline_population.R\")\npop <- create_baseline_population(year = 1990, totals_only = TRUE) %>%\n  as.data.frame(.)\npop$num_sims <- round(pop$population / sum(pop$population) * pop_size)\n\n\n\n# list for saving results\nevents <- vector(\"list\", length = nrow(pop))\nnames(events) <- paste0(\"cohort\", start_year - pop$age)",
+    "created" : 1497050132317.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1570719206",
+    "id" : "D16DC99D",
+    "lastKnownWriteTime" : 1497149784,
+    "last_content_update" : 1497149784681,
+    "path" : "~/prog/projects/hello_world_paper/msm.R",
+    "project_path" : null,
+    "properties" : {
+        "marks" : "<:0,0\n>:0,0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

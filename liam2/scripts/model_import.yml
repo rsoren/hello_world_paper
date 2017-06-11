@@ -1,0 +1,57 @@
+# ====================
+#
+# DELETE ALL "*.h5" FILES and EDIT "*.yml" FILES to correspond to model being run before importing anything in Notepad++.
+#
+# Programmable parameters currently set to (indicated by "==>") and alternative options (indicated by "<alt>"):
+#
+#  <alt>   Intervention "group" or "run" (local configuration constant INTERVENTION): False (no intervention).
+#  ==>     Intervention "group" or "run" (local configuration constant INTERVENTION): True (single intervention which halves all-cause mortality rate).
+#
+# Run from "C_drive/LIAM2Suite_0.11.0-win64".
+# Invoke editor as "editor/Notepad++Portable.exe".
+# Load this file as "Level_01/model_import.yml".
+#
+# File/directory names in file are relative to the directory containing this file, thus relative to "[BUNDLEPATH]/Level_01", not to "[BUNDLEPATH]".
+#
+# This is a LIAM2 import file.  To use it, press F5 if using the editor bundled with LIAM2, otherwise run following command in a console:
+# C:\Users\bobgian\LIAM2Suite_0.11.0-win64\liam2\main.exe import C:\Users\bobgian\LIAM2Suite_0.11.0-win64\Level_01\model_import.yml
+#
+# Note that local variables which are set in the code below to conditionalize a run are written in UPPERCASE to make them easier to find.
+# Local variables computed in a function (NOT edited to conditionalize a run) are in Mixed_Case.
+# Globals are also UPPERCASE (by convention).  So are macros (though none are used in this program).
+#
+# ====================
+
+output: model.h5
+
+entities:
+    person:
+
+        path: input\Level1_Population_Table.csv
+
+        fields:
+            - period:        int                                        # Defined.
+            - id:            int                                        # Defined.
+            - Alive:         int                                        # Input/Output.  1 => alive; 0 => dead.
+            - Age:           int                                        # Output.  Current age if alive (Alive == 1); age of death if dead (Alive == 0).
+            - Sex:           int                                        # Defined.  1 => Male; 2 => Female.
+            # "life-expectancy" below means projected age of death; difference is expected number of years to live at current age.
+            - YLLs:          float                                      # Output.  (Alive == 1) => 0.0; else (life-expectancy at age of death) - (age of death), ie, years more expected to live if had not died.
+            - TreatmentCost: int                                        # Output.  $2 per year for each year of treatment (starting at age >= 25 and year >= 1995).
+
+
+globals:
+
+    ALL_CAUSE_MORTALITY_RATE:                                           # Table.
+        path:  input\AllCause_Mortality_Rate_Table.csv
+        fields:
+            - Year:           int
+            - Age:            int
+            - Sex:            int                                       # 1 => Male; 2 => Female.
+            - Mortality_Rate: float
+
+    LIFE_EXPECTANCY:                                                    # 1-dimensional array.
+        path: input\Life_Expectancy_Array.csv
+        type: float
+
+# ====================

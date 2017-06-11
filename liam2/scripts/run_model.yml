@@ -1,0 +1,134 @@
+# ====================
+#
+# DELETE ALL "*.h5" FILES and EDIT "*.yml" FILES to correspond to model being run before importing anything in Notepad++.
+# Also edit all "DEBUG: " fields to establish variables/filenames/conditions to specialize each run.
+#
+# Programmable parameters currently set to (indicated by "==>") and alternative options (indicated by "<alt>"):
+#
+#  <alt>   Intervention "group" or "run" (local configuration constant INTERVENTION): False (no intervention).
+#  ==>     Intervention "group" or "run" (local configuration constant INTERVENTION): True (single intervention which halves All-Cause-Mortality-Rate).
+#
+# Run from "C_drive/LIAM2Suite_0.11.0-win64".
+# Invoke editor as "editor/Notepad++Portable.exe".
+# Load this file as "Level_01/run_model.yml".
+#
+# File/directory names in file are relative to the directory containing this file, thus relative to "[BUNDLEPATH]/Level_01", not to "[BUNDLEPATH]".
+#
+# This is a LIAM2 simulation file.  To run it, press F6 if using the editor bundled with LIAM2, otherwise run following command in a console:
+# C:\Users\bobgian\LIAM2Suite_0.11.0-win64\liam2\main.exe run C:\Users\bobgian\LIAM2Suite_0.11.0-win64\Level_01\run_model.yml
+#
+# Note that local variables which are set in the code below to conditionalize a run are written in UPPERCASE to make them easier to find.
+# Local variables computed in a function (NOT edited to conditionalize a run) are in Mixed_Case.
+# Globals are also UPPERCASE (by convention).  So are macros (though none are used in this program).
+#
+# ====================
+
+globals:
+
+    ALL_CAUSE_MORTALITY_RATE:                                           # Table.
+        fields:
+            - Year:           int
+            - Age:            int
+            - Sex:            int                                       # 1 => Male; 2 => Female.
+            - Mortality_Rate: float
+
+    LIFE_EXPECTANCY:                                                    # This 1-D array stores life-expectancy as years number of years more expected to live at current age, not expected age of death at current age.
+        type: float
+
+entities:
+
+    person:
+
+        fields:
+            # "Defined" => defines entity; not changed during simulation (ie, Read-Only).
+            # "Computed" => characteristic which MAY be changed during simulation; used to compute final results; Read-Write variable.
+            - period:        int                                        # Defined.
+            - id:            int                                        # Defined.
+            - Alive:         int                                        # Computed.  1 => alive; 0 => dead.
+            - Age:           int                                        # Computed.  Current age if alive (Alive == 1); age of death if dead (Alive == 0).
+            - Sex:           int                                        # Defined.   1 => Male; 2 => Female.
+            # "life-expectancy" below means projected age of death; difference is expected number of years to live at current age.
+            - YLLs:          float                                      # Computed.  (Alive == 1) => 0.0; else (life-expectancy at age of death) - (age of death), computed at death and propagated without change thereafter, for each person.
+            - TreatmentCost: int                                        # Computed.  $2 per year for each year of treatment (starting at age >= 25 and year >= 1995).
+
+        # Here is a list function definitions for this entity.  The actual list of functions called in the simulation and in which order is defined later.
+        processes:
+            simulate_one_year:
+
+                # DEBUG: Local configuration constant "INTERVENTION" controls whether this run simulates intervention (on entire population) or not.
+                # - INTERVENTION: True
+                - INTERVENTION: False
+
+                # Only do intervention if INTERVENTION == True, simulant is alive, simulant has Age >= 25, and period >= 1995.
+                - Do_Intervention: INTERVENTION and (Alive == 1) and (Age >= 25) and (period >= 1995)
+
+                # There are 240 Ages (1-120 for each of 2 sexes) and 2 Sexes stored for each Year in the AllCause_Mortality_Rate_Table.
+                # So Age is offset by 0 or 1 for each Sex, and Year is offset by a constant 1990 (the starting Year) and 240 Age/Sex combinations for each Year in the table.  Resulting combination
+                # (argument below) is the zero-based index into the Mortality_Rate column of the ALL_CAUSE_MORTALITY_RATE global table.
+
+                - AllCause_Mortality_Rate: ALL_CAUSE_MORTALITY_RATE.Mortality_Rate[(period - 1990)*240 + (Age - 1)*2 + (Sex - 1)] # Compute All-Cause-Mortality-Rate from table.
+
+                - AllCause_Mortality_Rate: if(Do_Intervention, AllCause_Mortality_Rate * 0.5, AllCause_Mortality_Rate) # If intervention is done (conditional on Alive/Year/Age/which-run), halve the All-Cause-Mortality-Rate.
+
+                - Mortality_Probability: 1.0 - exp(0.0 - AllCause_Mortality_Rate)          # Compute mortality PROBABILITY from All-Cause-Mortality-Rate alone.
+
+                - Died_This_Year: if(Alive == 1, uniform() < Mortality_Probability, False) # "Alive" here means alive at the START of the current year.
+                - Alive: if((Alive == 1) and (not Died_This_Year), 1, 0)                   # "Alive" now means alive at the END of the current year (was alive and didn't die this year; else dead).
+
+                # If simulant dies this year, change YLLs from 0.0 to number of years expected to live at current age; if already dead, YLLs remains unchanged at value precomputed at death.
+                - YLLs: if(Died_This_Year, LIFE_EXPECTANCY[Age], YLLs)
+
+                # Treatment cost through END of current year increments by $2 if intervention was done and simulant was alive at END of current year; otherwise it remains fixed at last year's value.
+                # This is an arbitrary choice made to keep comparisons consistent between different models: If a simulant dies during a year, it happens BEFORE he/she would have received treatment (hence no cost increment that year).
+                - TreatmentCost: if(Do_Intervention and (Alive == 1), TreatmentCost + 2, TreatmentCost)
+
+                - Total_Treatment_Cost: sum(TreatmentCost)              # Cost through END of current year, summed over all simulants (whether actually treated or not).
+
+                # The value of Total_YLLs for each year of each simulation is calculated here, representing a summation (up to that year) at the time of each simulant's death over ALL simulants,
+                # whether actually treated (because they are in the INTERVENTION group and meet intervention conditions of period >= 1995 and Age >= 25) or not (because period < 1995 or Age < 25
+                # or they are in the NON-INTERVENTION group).  Actually, only the value for the last period is relevant (YLLs values produced earlier get propagated to the end of simulation so they
+                # can be summed at the last period).  Simulants in the INTERVENTION group are treated here as "in the treatment group" whether they have actually received intervention before death
+                # or not (they will not have received treament if they die before Age == 25 or period == 1995) because they are in the "intervention group" whether the intervention is ready for them
+                # (ie, period >= 1995) or they for it (Age >= 25) or not.  Note that "being in the intervention group or not" really refers to one or another run of the simulation program, since
+                # two runs are done with identical populations (and the same random seed setting), differing only in whether intervention is done (value of the configuration constant INTERVENTION).
+                # Value of Averted_DALYs can be computed for the two runs (ie, INTERVENTION and non-INTERVENTION groups) by comparing Total_YLLs for each group at the end of both runs.
+                - Total_YLLs: sum(YLLs)                                 # Sum of YLLs through END of current year, summed over ALL simulants in EACH run.
+
+                # If person has died (Alive == 0), then Age stops incrementing and represents age of death.
+                - Age: if(Alive == 1, Age + 1, Age)                     # AGE is incremented (if alive) for current year AFTER all above operations take place.
+
+                - Total_Alive: sum(Alive)
+
+                # Now display results of all changes (and current balances) for current year (then final summaries can be computed from values at last period).
+                - show("\n\nIntervention:", INTERVENTION, "     Year:", period, "     Died this year:", sum(Died_This_Year * 1))
+                - show("\nRemaining alive:", Total_Alive, "     Total dead:", 10000 - Total_Alive)
+                - show("\nTotal YLLs:", Total_YLLs, "     Total Treatment Cost:", Total_Treatment_Cost)
+                - show("\n\n")
+
+simulation:
+
+    # Here comes the list of functions that will actually be executed (once per simulated period/year).  Functions and processes within functions execute
+    # sequentially (the first process for all individuals, then the second process, etc).  The same function may appear several times in this list.
+    processes:
+        - person: [simulate_one_year]
+
+    input:
+        file: model.h5
+
+    output:
+        # All output files will be in the output subdirectory (this path is relative to the path of the simulation file).  This is optional.
+        path: output
+        file: simulation.h5
+
+    random_seed: 54321                                                  # For reproducibility.
+
+    logging:
+        timings: True
+        level: periods                                                  # DEBUG: Lowest level of logging.
+        # level: processes                                                # DEBUG: Highest level of logging.
+
+    # We will simulate [1990, 2013] (inclusive; 24 periods).
+    start_period: 1990
+    periods: 24
+
+# ====================

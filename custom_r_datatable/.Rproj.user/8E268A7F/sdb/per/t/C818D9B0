@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "#\n# 03_microsim_level2.R\n#\n# Reed Sorensen\n# May 2016\n#\n\nrequire(Rmisc)\nrequire(dplyr)\nrequire(data.table)\nrequire(stringr)\nsource(\"02_functions.R\") # load utility functions\n\n\n# load rates and life table\nrates_tmp <- readRDS(\"data/rates.RDS\")\nlife_table <- readRDS(\"data/life_table.RDS\")\n\n\n# set simulation parameters\nstart_year <- 1990\nend_year <- 2013\n\ndeath_state <- \"died\"\nother_states <- \"ihd\"\n\ndisability_weights <- data.table(\n  id_number = c(0, 1),\n  weight = c(0, 0.08),\n  description = c(\"Healthy\", \"IHD only\")\n)\n\n\n# set up baseline population\npop <- readRDS(\"data/pop_level2.RDS\")\n\nsims <- select(pop, id = simulant_id, age, sex, ihd = IHD) %>%\n  .[, `:=`(\n    age_start = age,\n    cost = 0,\n    disability_state = as.integer(0),\n    disability_state_history = \"\")] %>%\n  .[, (death_state) := as.integer(9)] %>%\n  .[, (other_states) := as.integer(get(other_states))] %>%\n  .[, (paste0(c(death_state, other_states), \"_history\")) := \"\" ]\n\n\nif (!all(other_states %in% names(sims))) {\n  stop(\"All states must have a starting value\")\n}\n\n\n\nrun_microsim <- function(intervention = FALSE, seed = 123) {\n\n  # intervention <- FALSE; seed <- 123 # dev variables\n\n  set.seed(seed)\n\n  # define intervention\n  rates <- copy(rates_tmp)\n\n  if (intervention) {\n    rates[age >= 25 & year >= 1995, rate_incidence_ihd := rate_incidence_ihd / 2]\n  }\n\n  # convert rates to probabilities, and retain only the needed vars\n  probs <- rate2prob(rates)\n  prob_vars <- c(\"prob_mortality\", \"prob_mortality_ihd_plus\", \"prob_incidence_ihd\")\n  probs <- probs[, (c(\"year\", \"age\", \"sex\", prob_vars)), with = FALSE]\n  setkeyv(probs, c(\"sex\", \"age\")) # set key for merge\n\n\n  # run simulation\n\n  system.time(for (yr in start_year:end_year) {\n\n    # yr <- 1990 # dev variable\n\n    # update age and get new probabilities\n    sims[, age := age_start + yr - start_year]\n    setkeyv(sims, c(\"sex\", \"age\"))\n    probs2 <- probs[year == yr][, year := NULL]\n    sims <- probs2[sims]\n\n    # apply changes\n    sims[died != 1 & ihd == 1, # if have IHD, adjust mortality prob\n      prob_mortality := prob_mortality_ihd_plus]\n\n    sims[died != 1, # if alive, apply mortality prob\n      died := rbinom(.N, 1, prob_mortality)]\n\n    sims[died != 1 & ihd != 1, # if not have IHD, apply IHD incidence\n      ihd := rbinom(.N, 1, prob_incidence_ihd)]\n\n    sims[died == 1, # if dead, make IHD null (9)\n      ihd := 9]\n\n    # update disability state\n    sims[ihd == 1, disability_state := 1]\n\n    # record changes\n    sims[, died_history := paste0(died_history, died)]\n    sims[, ihd_history := paste0(ihd_history, ihd)]\n    sims[, disability_state_history := paste0(disability_state_history, disability_state)]\n\n\n    # add cost\n    sims[age >= 25 & yr >= 1995 & died != 1 & intervention, cost := cost + 2]\n\n\n    sims[, (prob_vars) := NULL] # remove yr-specific probs\n\n  })\n\n\n  # calculate DALYs and costs\n  sims2 <- summarize_results(sims, d_weights = disability_weights)\n\n  return(sims2)\n\n}\n\n\n\nsystem.time(result <- get_ICER(seed = 125, check_ihd = TRUE))\n\nresults <- mapply(get_ICER, 1:20, TRUE)\nt(apply(results, 1, CI))\n",
+    "created" : 1497049510551.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "442544404",
+    "id" : "C818D9B0",
+    "lastKnownWriteTime" : 1495926108,
+    "last_content_update" : 1495926108,
+    "path" : "~/prog/projects/hello_world_paper/microsim_datatable_reed/03_microsim_level2.R",
+    "project_path" : "03_microsim_level2.R",
+    "properties" : {
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

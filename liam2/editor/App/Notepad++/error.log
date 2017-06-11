@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "Console.py", line 27, in <module>
+  File "main.py", line 348, in <module>
+  File "main.py", line 338, in main
+  File "importer.py", line 753, in csv2h5
+  File "utils.py", line 1046, in validate_dict
+  File "utils.py", line 1023, in validate_keys
+SyntaxError: invalid keyword(s): 'simulation'

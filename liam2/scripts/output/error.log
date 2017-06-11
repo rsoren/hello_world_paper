@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "Console.py", line 27, in <module>
+  File "main.py", line 348, in <module>
+  File "main.py", line 338, in main
+  File "main.py", line 137, in simulate
+  File "simulation.py", line 605, in run
+  File "simulation.py", line 596, in run_single
+  File "console.py", line 245, in run
+  File "utils.py", line 138, in write
+IOError: [Errno 22] Invalid argument
